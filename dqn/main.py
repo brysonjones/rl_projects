@@ -18,11 +18,10 @@ if __name__ == "__main__":
     # network = DQN(action_space_size, obs_space_size)
     # optimizer = torch.optim.SGD(network.parameters(), lr=1e-3, momentum=0.9)
     # loss_fn = torch.nn.MSELoss()
-    # model = MainModel(network)
+    model = MainModel(None, None)
     obs = env.reset()
-    frane = env.render(mode = "rgb_array")
-    import time
-    time.sleep(20)
+    frame = env.render(mode = "rgb_array")
+    model.preprocess(frame)
 
     num_episodes = 1000
     for e in range(num_episodes):

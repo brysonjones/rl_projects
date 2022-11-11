@@ -9,8 +9,11 @@ class DQN(nn.Module):
         self.action_size = action_space
         self.obs_size = obs_space
 
-    def forward(x):
+    def forward(self, x):
         pass
 
-    def get_action(current_obs):
+    def get_action(self, current_obs):
+        # explore
+
+        # exploit
         pass
