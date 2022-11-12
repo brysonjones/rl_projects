@@ -1,17 +1,25 @@
 
 import numpy as np
+import random
 import cv2
 
 from network.memory import Memory
 
 class MainModel():
-    def __init__(self, network, optimizer):
+    def __init__(self, network, optimizer, espilion=0.3):
         self._network = network
         self._optimizer = optimizer
+        self._espilion = espilion
         self._replay_memory = Memory()
 
     def get_action(self, current_obs):
-        pass
+        if (random.random() < self._espilion):
+            # explore
+            return random.randint(0, self._network.action_space)
+        else:
+            # exploit
+            q_values = self._network(current_obs)
+            return np.argmax(q_values)
 
     def update_state(self, prev_state, action, reward, new_obs):
         '''
