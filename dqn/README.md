@@ -22,7 +22,7 @@ An example of this process can be seen below:
 
 **Raw Frame:**
 
-**Square-Trimmed Frame:** 
+**Square Frame:** 
 
 **Grey-Scaled Frame:**
 

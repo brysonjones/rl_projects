@@ -32,7 +32,7 @@ if __name__ == "__main__":
             action = model.get_action(state)
             obs, reward, done, _ = env.step(action)
             obs_frame = env.render(mode = "rgb_array")
-            state = model.update_state(obs_frame, state, )
+            state = model.update_state(obs_frame, state, action, reward, done)
             # TODO: sample random mini batch of transitions from memory
             # TODO: set y_j = reward estimate
             # TODO: perform gradient descent step
