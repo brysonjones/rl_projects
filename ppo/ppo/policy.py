@@ -14,7 +14,7 @@ class Policy(nn.Module):
         # specify network architecture
         layer_list = [nn.Linear(self.obs_size, num_hidden), nn.ReLU()]
         for i in range(num_layers):
-            layer_list.append(nn.Linear(self.obs_size, num_hidden))
+            layer_list.append(nn.Linear(num_hidden, num_hidden))
             layer_list.append(nn.ReLU())
         layer_list.append(nn.Linear(num_hidden, self.action_size))
 

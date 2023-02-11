@@ -1,9 +1,11 @@
 
+import sys
 import gym
 import torch
 import ppo.ppo
-import ppo.network
+import ppo.policy
 import wandb
+import numpy as np
 
 if __name__ == "__main__":
     # init wandb logger
@@ -16,24 +18,37 @@ if __name__ == "__main__":
     obs_space_size = env.observation_space
 
     # init model
-    policy = ppo.network.Policy(action_space_size, obs_space_size)
+    policy = ppo.policy.Policy(action_space_size, obs_space_size)
     optimizer = torch.optim.SGD(network.parameters(), lr=1e-3, momentum=0.9)
     loss_fn = torch.nn.MSELoss()
-    model = ppo.network.PPO(policy, optimizer)
+    model = ppo.ppo.PPO(policy, optimizer)
 
-    num_episodes = 1000
+    render_rate = 100
+
+    num_episodes = 5000
     for e in range(num_episodes):
-        obs = env.reset()
-        obs_frame = env.render(mode = "rgb_array")
-        state = model.update_state(obs_frame)
-        # TODO: init seq
-        # TODO: init preprocessed seq
+        state = env.reset()
+        log_prob_list = []
+        reward_list = []
+        steps = 0
         while True:
-            action = model.get_action(state)
-            obs, reward, done, _ = env.step(action)
-            obs_frame = env.render(mode = "rgb_array")
-            state = model.update_state(obs_frame, state, action, reward, done)
-            # TODO: sample random mini batch of transitions from memory
-            # TODO: set y_j = reward estimate
-            # TODO: perform gradient descent step
-            model.learn()
+            steps += 1
+            if e % render_rate == 0:
+                env.render()
+            # get action with highest prob
+            action_probs = # TODO
+            highest_prob_action = np.random.choice(env.action_space.n, p=np.squeeze(action_probs.detach().numpy()))
+            log_prob = torch.log(action_probs.squeeze(0)[highest_prob_action])
+            # take step
+            state, reward, done, info = env.step(highest_prob_action)
+
+            log_prob_list.append(log_prob)
+            reward_list.append(reward)
+
+            if done:
+                # update policy
+                if e % 1 == 0:
+                    sys.stdout.write("episode: {}, total reward: {}, length: {}\n".format(e,
+                                                                                          np.round(np.sum(reward_list), decimals=3),
+                                                                                          steps))
+                break
