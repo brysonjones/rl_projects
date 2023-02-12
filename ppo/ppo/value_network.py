@@ -24,3 +24,4 @@ class ValueNet(nn.Module):
         return self._layers(x)
 
     def learn():
+        pass
