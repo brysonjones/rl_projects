@@ -33,6 +33,7 @@ if __name__ == "__main__":
     for e in range(num_episodes):
         state = env.reset()
         rollout_data_list = []
+        reward_list = []
         steps = 0
         value_target_t = 0
         while True:
@@ -40,27 +41,28 @@ if __name__ == "__main__":
             if e % render_rate == 0:
                 env.render()
             # get action with highest prob
-            action_probs = model(state)
+            action_probs = model(torch.from_numpy(state).type(torch.FloatTensor).to(device))
             highest_prob_action = np.random.choice(env.action_space.n, p=np.squeeze(action_probs.detach().numpy()))
             # log_prob = torch.log(action_probs.squeeze(0)[highest_prob_action]) TODO: determine if we need this?
             # take step
             state_new, reward, done, info = env.step(highest_prob_action)
 
-            rollout_tuple_t = (state, highest_prob_action, reward, action_probs)
+            rollout_tuple_t = (torch.from_numpy(state).type(torch.FloatTensor).to(device), 
+                               torch.from_numpy(highest_prob_action).type(torch.IntTensor).to(device), 
+                               torch.from_numpy(reward).type(torch.FloatTensor).to(device), 
+                               action_probs)
             state = state_new
             rollout_data_list.append(reward)
+            reward_list.append(reward)
 
             if done:
                 # TODO try to make all datasets the same length by resetting to a random state and continuing
                 #      this will help with training efficiency by making data length the same for batching           
-                value_target_t = model.get_value(rollout_data_list[-1][0])
+                value_target_t = 0  # TODO: revisit page 15 of the Bick paper to look at this estimation when the trajectory ends non-terminally
                 if e % 1 == 0:
                     sys.stdout.write("episode: {}, total reward: {}, length: {}\n".format(e,
                                                                                           np.round(np.sum(reward_list), decimals=3),
                                                                                           steps))
                 break
-        for t in range(len(rollout_data_list)-1, -1, -1):
-            r_t = rollout_data_list[t]
-            value_target_t = 0
-            for t_discount in range(len(rollout_data_list)):
-                r_t = rollout_data_list[t_discount]
+        model.store_rollout(rollout_data_list, value_target_t)
+

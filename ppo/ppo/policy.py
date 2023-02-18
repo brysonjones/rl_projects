@@ -23,5 +23,4 @@ class Policy(nn.Module):
         
 
     def forward(self, x):
-        x = torch.from_numpy(x).type(torch.FloatTensor).to(self.device)
         return self._layers(x)

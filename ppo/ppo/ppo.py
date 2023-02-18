@@ -27,10 +27,10 @@ class PPO():
 
 
     # start with very simple advantage function calculation and make it more complex later (GAE, etc)
-    def _calculate_advantage(self, value_current_state_list, value_next_state_list, reward_list):
-        advantage = np.zeros_like(reward_list)
-        for i in range(len(reward_list)):
-            advantage[i] = reward_list[i] + (self._discount_gamma * value_next_state_list[i]) - value_current_state_list[t]
+    def store_rollout(self, rollout_data_list, value_target_t):
+        for t in range(len(rollout_data_list)-1, -1, -1):
+            value_target_t = rollout_data_list[t][2] + self._discount_gamma * value_target_t
+            advantage_t = value_target_t - self._value_fcn(rollout_data_list[t][0])
 
     def _calculate_loss():
         pass
