@@ -19,8 +19,12 @@ class PPO():
             return random.randint(0, self._network.action_size)
         else:
             # exploit
-            q_values = self._network(current_obs)
+            q_values = self._policy(current_obs)
             return q_values.cpu().data.numpy().argmax()
+    
+    def get_value(self, state):
+        return self._value_fcn(state)
+
 
     # start with very simple advantage function calculation and make it more complex later (GAE, etc)
     def _calculate_advantage(self, value_current_state_list, value_next_state_list, reward_list):
