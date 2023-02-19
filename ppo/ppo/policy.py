@@ -17,6 +17,7 @@ class Policy(nn.Module):
             layer_list.append(nn.Linear(num_hidden, num_hidden))
             layer_list.append(nn.ReLU())
         layer_list.append(nn.Linear(num_hidden, self.action_size))
+        layer_list.append(nn.Softmax(dim=0))
 
         self._layers = nn.Sequential(*layer_list)
 

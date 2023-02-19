@@ -11,11 +11,11 @@ class PPO():
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self._policy = policy.to(self.device)
         self._value_fcn = value_fcn.to(self.device)
+        self._optimizer = optimizer
         self._action_space_size = action_space_size
         self._epsilon = epsilon
         self._discount_gamma = discount_gamma
         self._num_epochs = num_epochs
-        self._optimizer = optimizer
         self._training_data = []
 
     def get_action(self, current_obs):

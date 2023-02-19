@@ -7,7 +7,6 @@ class ValueNet(nn.Module):
     def __init__(self, obs_space, num_layers=2, num_hidden=32):
         super(ValueNet, self).__init__()
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self._optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
 
         # specify network architecture
         layer_list = [nn.Linear(obs_space, num_hidden), nn.ReLU()]

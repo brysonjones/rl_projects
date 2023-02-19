@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # init environment
     env = gym.make("CartPole-v1")
     action_space_size = env.action_space.n
-    obs_space_size = env.observation_space
+    obs_space_size = env.observation_space.shape[0]
 
     # init models
     policy = ppo.policy.Policy(action_space_size, obs_space_size)
@@ -23,7 +23,7 @@ if __name__ == "__main__":
                                 lr=1e-3, 
                                 momentum=0.9)
     # loss_fn = torch.nn.MSELoss()
-    model = PPO(policy, optimizer, optimizer, action_space_size)
+    model = PPO(policy, value_fcn, optimizer, action_space_size)
 
     render_rate = 100
     num_episodes = 5000
