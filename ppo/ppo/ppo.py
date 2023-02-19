@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import random
 import numpy as np
 
@@ -36,16 +37,26 @@ class PPO():
         self._training_data += rollout_data_list
 
     def _calculate_loss(self, sample):
+        # extract data
         state_t, action_t, reward_t, next_state_t, \
             old_action_prob_t, advantage_t, value_target_t = sample
         _, action_prob_dist_t = self.get_action(state_t)
         prob_ratio = action_prob_dist_t[action_t] / old_action_prob_t
         prob_ratio = torch.from_numpy(prob_ratio).type(torch.FloatTensor).to(self.device)
         advantage_t = torch.from_numpy(advantage_t).type(torch.FloatTensor).to(self.device)
-        torch.min(torch.tensor([prob_ratio*advantage_t, 
+        
+        # calculate losses
+        loss_clip = torch.min(torch.tensor([prob_ratio*advantage_t, 
                                 torch.clip(prob_ratio, 1-self._epsilon, 1+self._epsilon)]))
+        loss_value = F.mse_loss(self._value_fcn(state_t), value_target_t)
+        loss_total = -loss_clip + loss_value
+
+        # backprop and update weights
+        loss_total.backward()
+        self._optimizer.step()
 
     def learn(self):
+        self._optimizer.zero_grad()
         # update policy
         for e in range(self._num_epochs):
             random.shuffle(self._training_data)

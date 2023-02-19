@@ -5,12 +5,9 @@ import torch
 from ppo.ppo import PPO
 import ppo.policy
 import ppo.value_network
-import wandb
 import numpy as np
 
 if __name__ == "__main__":
-    # init wandb logger
-    # wandb.init(project="dqn-dev")
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # init environment
@@ -41,9 +38,8 @@ if __name__ == "__main__":
             steps += 1
             if episode % render_rate == 0:
                 env.render()
-            # get action with highest prob
+            # get action and probability distribution
             action_t, action_prob_dist = model.get_action(torch.from_numpy(state).type(torch.FloatTensor).to(device))
-            # log_prob = torch.log(action_probs.squeeze(0)[highest_prob_action]) TODO: determine if we need this?
             # take step
             state_new, reward, done, info = env.step(action_t)
 
@@ -67,3 +63,4 @@ if __name__ == "__main__":
                                                                                           steps))
                 break
         model.store_rollout(rollout_data_list, value_target_t)
+        model.learn()
