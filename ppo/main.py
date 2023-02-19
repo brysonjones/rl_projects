@@ -25,12 +25,13 @@ if __name__ == "__main__":
     optimizer = torch.optim.SGD(list(policy.parameters()) + list(value_fcn.parameters()), 
                                 lr=1e-3, 
                                 momentum=0.9)
-    loss_fn = torch.nn.MSELoss()
-    model = PPO(policy, optimizer)
+    # loss_fn = torch.nn.MSELoss()
+    model = PPO(policy, optimizer, optimizer, action_space_size)
 
     render_rate = 100
     num_episodes = 5000
-    for e in range(num_episodes):
+    num_epochs = 3  # TODO: tune this
+    for episode in range(num_episodes):
         state = env.reset()
         rollout_data_list = []
         reward_list = []
@@ -38,19 +39,20 @@ if __name__ == "__main__":
         value_target_t = 0
         while True:
             steps += 1
-            if e % render_rate == 0:
+            if episode % render_rate == 0:
                 env.render()
             # get action with highest prob
-            action_probs = model(torch.from_numpy(state).type(torch.FloatTensor).to(device))
-            highest_prob_action = np.random.choice(env.action_space.n, p=np.squeeze(action_probs.detach().numpy()))
+            action_t, action_prob_dist = model.get_action(torch.from_numpy(state).type(torch.FloatTensor).to(device))
             # log_prob = torch.log(action_probs.squeeze(0)[highest_prob_action]) TODO: determine if we need this?
             # take step
-            state_new, reward, done, info = env.step(highest_prob_action)
+            state_new, reward, done, info = env.step(action_t)
 
+            # TODO: is a tuple really the best DS here? Maybe a dict or named-tuple is better?
             rollout_tuple_t = (torch.from_numpy(state).type(torch.FloatTensor).to(device), 
-                               torch.from_numpy(highest_prob_action).type(torch.IntTensor).to(device), 
-                               torch.from_numpy(reward).type(torch.FloatTensor).to(device), 
-                               action_probs)
+                               torch.from_numpy(action_t).type(torch.IntTensor).to(device), 
+                               torch.from_numpy(reward).type(torch.FloatTensor).to(device),
+                               torch.from_numpy(state_new).type(torch.FloatTensor).to(device), 
+                               action_prob_dist)
             state = state_new
             rollout_data_list.append(reward)
             reward_list.append(reward)
@@ -59,10 +61,9 @@ if __name__ == "__main__":
                 # TODO try to make all datasets the same length by resetting to a random state and continuing
                 #      this will help with training efficiency by making data length the same for batching           
                 value_target_t = 0  # TODO: revisit page 15 of the Bick paper to look at this estimation when the trajectory ends non-terminally
-                if e % 1 == 0:
+                if episode % 1 == 0:
                     sys.stdout.write("episode: {}, total reward: {}, length: {}\n".format(e,
                                                                                           np.round(np.sum(reward_list), decimals=3),
                                                                                           steps))
                 break
         model.store_rollout(rollout_data_list, value_target_t)
-
