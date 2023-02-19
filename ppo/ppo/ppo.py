@@ -21,7 +21,7 @@ class PPO():
     def get_action(self, current_obs):
         action_prob_dist = self._policy(current_obs)
         action = np.random.choice(self._action_space_size, 
-                                  p=np.squeeze(action_prob_dist.detach().numpy()))
+                                  p=np.squeeze(action_prob_dist.cpu().detach().numpy()))
         return action, action_prob_dist
     
     def get_value(self, state):
@@ -33,7 +33,8 @@ class PPO():
         for t in range(len(rollout_data_list)-1, -1, -1):
             value_target_t = rollout_data_list[t][2] + self._discount_gamma * value_target_t
             advantage_t = value_target_t - self._value_fcn(rollout_data_list[t][0])
-            rollout_data_list[t] = rollout_data_list + (advantage_t, value_target_t)
+            rollout_data_list[t] = rollout_data_list[t] + (torch.tensor(advantage_t, dtype=torch.float).to(self.device), 
+                                                        torch.tensor(value_target_t, dtype=torch.float).to(self.device))
         self._training_data += rollout_data_list
 
     def _calculate_loss(self, sample):
@@ -42,8 +43,6 @@ class PPO():
             old_action_prob_t, advantage_t, value_target_t = sample
         _, action_prob_dist_t = self.get_action(state_t)
         prob_ratio = action_prob_dist_t[action_t] / old_action_prob_t
-        prob_ratio = torch.from_numpy(prob_ratio).type(torch.FloatTensor).to(self.device)
-        advantage_t = torch.from_numpy(advantage_t).type(torch.FloatTensor).to(self.device)
         
         # calculate losses
         loss_clip = torch.min(torch.tensor([prob_ratio*advantage_t, 
@@ -63,3 +62,6 @@ class PPO():
             # TODO: loop through individual samples for now, but switch to batches
             for sample in self._training_data:
                 self._calculate_loss(sample)
+
+        # clear all previous training data
+        self._training_data.clear()
