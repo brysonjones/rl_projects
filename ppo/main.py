@@ -52,7 +52,7 @@ if __name__ == "__main__":
                                torch.from_numpy(action_t).type(torch.IntTensor).to(device), 
                                torch.from_numpy(reward).type(torch.FloatTensor).to(device),
                                torch.from_numpy(state_new).type(torch.FloatTensor).to(device), 
-                               action_prob_dist)
+                               action_prob_dist[action_t])
             state = state_new
             rollout_data_list.append(reward)
             reward_list.append(reward)

@@ -6,12 +6,12 @@ import numpy as np
 
 class PPO():
     def __init__(self, policy, value_fcn, optimizer, action_space_size, 
-                 espilion=0.3, discount_gamma=0.99, num_epochs=3):
+                 epsilon=0.2, discount_gamma=0.99, num_epochs=3):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self._policy = policy.to(self.device)
         self._value_fcn = value_fcn.to(self.device)
         self._action_space_size = action_space_size
-        self._espilion = espilion
+        self._epsilon = epsilon
         self._discount_gamma = discount_gamma
         self._num_epochs = num_epochs
         self._optimizer = optimizer
@@ -26,7 +26,6 @@ class PPO():
     def get_value(self, state):
         return self._value_fcn(state)
 
-
     # start with very simple advantage function calculation and make it more complex later (GAE, etc)
     def store_rollout(self, rollout_data_list, value_target_t):
         # loop in reverse to prevent re-computing values
@@ -36,8 +35,15 @@ class PPO():
             rollout_data_list[t] = rollout_data_list + (advantage_t, value_target_t)
         self._training_data += rollout_data_list
 
-    def _calculate_loss():
-        pass
+    def _calculate_loss(self, sample):
+        state_t, action_t, reward_t, next_state_t, \
+            old_action_prob_t, advantage_t, value_target_t = sample
+        _, action_prob_dist_t = self.get_action(state_t)
+        prob_ratio = action_prob_dist_t[action_t] / old_action_prob_t
+        prob_ratio = torch.from_numpy(prob_ratio).type(torch.FloatTensor).to(self.device)
+        advantage_t = torch.from_numpy(advantage_t).type(torch.FloatTensor).to(self.device)
+        torch.min(torch.tensor([prob_ratio*advantage_t, 
+                                torch.clip(prob_ratio, 1-self._epsilon, 1+self._epsilon)]))
 
     def learn(self):
         # update policy
@@ -45,5 +51,4 @@ class PPO():
             random.shuffle(self._training_data)
             # TODO: loop through individual samples for now, but switch to batches
             for sample in self._training_data:
-                state_t, action_t, reward_t, next_state_t, action_prob_dist_t = sample
-
+                self._calculate_loss(sample)
