@@ -25,10 +25,8 @@ if __name__ == "__main__":
                        "optimizer - learning_rate": 1e-4})
     policy = ppo.policy.Policy(action_space_size, obs_space_size, num_layers=2, num_hidden=256)
     value_fcn = ppo.value_network.ValueNet(obs_space_size, num_layers=2, num_hidden=256)
-    # TODO: check if this implementation for optimizing both sets of weights is valid
-    optimizer = torch.optim.Adam(list(policy.parameters()) + list(value_fcn.parameters()), lr=1e-4)
-    # loss_fn = torch.nn.MSELoss()
-    model = PPO(policy, value_fcn, optimizer, action_space_size)
+
+    model = PPO(policy, value_fcn, action_space_size)
 
     render_rate = 100
     num_episodes = 5000

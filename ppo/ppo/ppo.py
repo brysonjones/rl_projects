@@ -7,12 +7,11 @@ import numpy as np
 import wandb
 
 class PPO():
-    def __init__(self, policy, value_fcn, optimizer, action_space_size, 
+    def __init__(self, policy, value_fcn, action_space_size, 
                  epsilon=0.2, discount_gamma=0.99, num_epochs=3):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self._policy = policy.to(self.device)
         self._value_fcn = value_fcn.to(self.device)
-        self._optimizer = optimizer
         self._action_space_size = action_space_size
         self._epsilon = epsilon
         self._discount_gamma = discount_gamma
@@ -43,7 +42,7 @@ class PPO():
         state_t, action_t, reward_t, next_state_t, \
             old_action_prob_t, advantage_t, value_target_t = sample
         _, action_prob_dist_t = self.get_action(state_t)
-        prob_ratio = action_prob_dist_t.log_prob(action_t)/ old_action_prob_t
+        prob_ratio = action_prob_dist_t.log_prob(action_t).exp() / old_action_prob_t.exp()
         
         # calculate losses
         loss_clip = torch.min(torch.tensor([prob_ratio*advantage_t, 
@@ -53,9 +52,11 @@ class PPO():
         wandb.log({'loss_total': loss_total})
 
         # backprop and update weights
-        self._optimizer.zero_grad()
+        self._value_fcn.optimizer.zero_grad()
+        self._policy.optimizer.zero_grad()
         loss_total.backward()
-        self._optimizer.step()
+        self._value_fcn.optimizer.step()
+        self._policy.optimizer.step()
 
     def learn(self):
         # update policy

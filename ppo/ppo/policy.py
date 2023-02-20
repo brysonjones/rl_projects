@@ -13,16 +13,17 @@ class Policy(nn.Module):
         self.obs_size = obs_space
 
         # specify network architecture
-        layer_list = [nn.Linear(self.obs_size, num_hidden), nn.ReLU()]
+        self.layer_list = nn.ModuleList([nn.Linear(obs_space, num_hidden), nn.ReLU()])
         for i in range(num_layers):
-            layer_list.append(nn.Linear(num_hidden, num_hidden))
-            layer_list.append(nn.ReLU())
-        layer_list.append(nn.Linear(num_hidden, self.action_size))
-        layer_list.append(nn.Softmax(dim=-1))
+            self.layer_list.append(nn.Linear(num_hidden, num_hidden))
+            self.layer_list.append(nn.ReLU())
+        self.layer_list.append(nn.Linear(num_hidden, self.action_size))
+        self.layer_list.append(nn.Softmax(dim=-1))
 
-        self._layers = nn.Sequential(*layer_list)
+        self._layers = nn.Sequential(*self.layer_list)
 
-        
+        self.optimizer = torch.optim.Adam(self._layers.parameters(), lr=3e-4)
+
 
     def forward(self, x):
         dist = self._layers(x)
