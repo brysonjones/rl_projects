@@ -17,7 +17,7 @@ class ValueNet(nn.Module):
 
         self._layers = nn.Sequential(*self.layer_list)
 
-        self.optimizer = torch.optim.Adam(self._layers.parameters(), lr=3e-5)
+        self.optimizer = torch.optim.Adam(self._layers.parameters(), lr=3e-4)
 
 
     def forward(self, x):
