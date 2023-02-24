@@ -14,9 +14,9 @@ class Policy(nn.Module):
 
         # specify network architecture
         self.layer_list = nn.Sequential(nn.Linear(obs_space, num_hidden), 
-                                         nn.Tanh(),
+                                         nn.ReLU(),
                                          nn.Linear(num_hidden, num_hidden),
-                                         nn.Tanh(), 
+                                         nn.ReLU(), 
                                          nn.Linear(num_hidden, self.action_size),
                                          nn.Softmax(dim=-1))
         # self.layer_list = nn.ModuleList([nn.Linear(obs_space, num_hidden), 
@@ -29,7 +29,7 @@ class Policy(nn.Module):
 
         # self._layers = nn.Sequential(*self.layer_list)
 
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=3e-4)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.0003, eps=1e-5)
 
 
     def forward(self, x):

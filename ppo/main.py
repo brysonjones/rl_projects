@@ -13,7 +13,7 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # init environment
-    env = gym.make("CartPole-v1")
+    env = gym.make("CartPole-v0")
     action_space_size = env.action_space.n
     obs_space_size = env.observation_space.shape[0]
 
@@ -23,8 +23,8 @@ if __name__ == "__main__":
     #                    "policy - num_hidden": 64, 
     #                    "value_net - num_hidden": 64, 
     #                    "optimizer - learning_rate": 1e-4})
-    policy = ppo.policy.Policy(action_space_size, obs_space_size, num_layers=1, num_hidden=64)
-    value_fcn = ppo.value_network.ValueNet(obs_space_size, num_layers=1, num_hidden=64)
+    policy = ppo.policy.Policy(action_space_size, obs_space_size, num_layers=1, num_hidden=256)
+    value_fcn = ppo.value_network.ValueNet(obs_space_size, num_layers=1, num_hidden=256)
 
     model = PPO(policy, value_fcn, obs_space_size, action_space_size)
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
                 env.render()
             # get action and probability distribution
             state = torch.from_numpy(state).type(torch.FloatTensor).unsqueeze(0).to(device)
-            action_t, action_prob_dist = model.get_action(state)
+            action_t, action_prob_dist, value = model.get_action(state)
             # take step
             state_new, reward, done, info = env.step(action_t.item())
 
@@ -51,8 +51,9 @@ if __name__ == "__main__":
             rollout_tuple_t = (state, 
                                action_t.reshape((1, 1)), 
                                torch.tensor(reward, dtype=torch.float).reshape((1, 1)).to(device), 
-                               torch.from_numpy(state_new).type(torch.FloatTensor).to(device), 
-                               action_prob_dist.log_prob(action_t).reshape((1, 1)))
+                               value, 
+                               action_prob_dist.log_prob(action_t).reshape((1, 1)),
+                               done)
             state = state_new
             rollout_data_list.append(rollout_tuple_t)
             reward_list.append(reward)
@@ -67,6 +68,13 @@ if __name__ == "__main__":
                                                                                           steps))
                     wandb.log({'episode': episode, 
                                'total reward': np.round(np.sum(reward_list), decimals=3)})
+                if len(model.training_data_raw) < 500:   
+                    model.store_rollout(rollout_data_list, value_target_t)                     
+                    state = env.reset()
+                    rollout_data_list = []
+                    reward_list = []
+                    steps = 0
+                    value_target_t = 0
+                    continue
                 break
-        model.store_rollout(rollout_data_list, value_target_t)
         model.learn()
