@@ -8,7 +8,7 @@ import wandb
 
 class PPO():
     def __init__(self, policy, value_fcn, obs_space_size, action_space_size, 
-                 epsilon=0.2, discount_gamma=1, num_epochs=3,
+                 epsilon=0.2, discount_gamma=0.99, num_epochs=3,
                  batch_size=32):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self._policy = policy.to(self.device)
@@ -34,14 +34,16 @@ class PPO():
     # start with very simple advantage function calculation and make it more complex later (GAE, etc)
     def store_rollout(self, rollout_data_list, value_target_t):
         # loop in reverse to prevent re-computing values
-        rewards = []
-        for i in range(len(rollout_data_list)):
-            rewards.append(rollout_data_list[i][2])
-        rewards = torch.tensor(rewards).to(self.device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
+        value_target_array = []
         for t in range(len(rollout_data_list)-1, -1, -1):
-            value_target_t = rewards[t] + self._discount_gamma * value_target_t
-            rollout_data_list[t] = rollout_data_list[t] + (value_target_t.reshape((1, 1)),)
+            value_target_t = rollout_data_list[t][2] + self._discount_gamma * value_target_t
+            value_target_array.append(value_target_t)
+
+        value_target_array.reverse()
+        value_target_array = torch.tensor(value_target_array).to(self.device)
+        value_target_array = (value_target_array - value_target_array.mean()) / (value_target_array.std() + 1e-7)
+        for i in range(len(rollout_data_list)):
+            rollout_data_list[i] = rollout_data_list[i] + (value_target_array[i].reshape((1, 1)),)
         self.training_data_raw += rollout_data_list
         random.shuffle(self.training_data_raw)
 
@@ -77,18 +79,19 @@ class PPO():
         # extract data
         state_tensor, action_tensor, old_action_prob_tensor, value_target_tensor = batch
         _, action_prob_dist_t = self.get_action(state_tensor)
-        with torch.no_grad():
-            action_prob_tensor = action_prob_dist_t.log_prob(action_tensor)
-            action_prob_tensor = torch.exp(action_prob_tensor)
-            old_action_prob_tensor = torch.exp(old_action_prob_tensor)
-        prob_ratio = action_prob_tensor / old_action_prob_tensor
+        action_prob_tensor = action_prob_dist_t.log_prob(action_tensor)
+        action_prob_tensor = torch.exp(action_prob_tensor)
+        old_action_prob_tensor = torch.exp(old_action_prob_tensor)
+        prob_ratio = action_prob_tensor.detach() / (old_action_prob_tensor.detach() + 1e-8)
+
+        
         advantage_tensor = value_target_tensor - self._value_fcn(state_tensor)
         # calculate losses
         loss_clip = torch.min(prob_ratio*advantage_tensor, 
                               torch.clip(prob_ratio, 1-self._epsilon, 1+self._epsilon)*advantage_tensor).mean()
-        loss_value = F.mse_loss(self._value_fcn(state_tensor), value_target_tensor)
+        loss_value = F.mse_loss(self._value_fcn(state_tensor), advantage_tensor + value_target_tensor)
         loss_entropy = action_prob_dist_t.entropy().mean()
-        loss_total = -loss_clip + 0.5 * loss_value - 0.1 * loss_entropy
+        loss_total = -loss_clip + 0.5 * loss_value - 0.0 * loss_entropy
         wandb.log({'loss_clip': loss_clip})
         wandb.log({'loss_value': loss_value})
         wandb.log({'loss_entropy': loss_entropy})
@@ -104,6 +107,9 @@ class PPO():
     def learn(self):
         # update policy
         self.batch_data()
+        self._policy.train()
+        self._value_fcn.train()
+
         for e in range(self._num_epochs):
             # TODO: loop through individual samples for now, but switch to batches
             for batch in self._training_data_batched:
