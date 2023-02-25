@@ -2,127 +2,117 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions.categorical import Categorical
 import random
 import numpy as np
 import wandb
 
-class PPO():
-    def __init__(self, policy, value_fcn, obs_space_size, action_space_size, 
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+class PPO_Agent():
+    def __init__(self, obs_space_size, action_space_size, 
                  epsilon=0.2, discount_gamma=0.99, gae_lambda=0.95, num_epochs=4,
                  batch_size=64):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self._policy = policy.to(self.device)
-        self._value_fcn = value_fcn.to(self.device)
+
         self._obs_space_size = obs_space_size
         self._action_space_size = action_space_size
-        self._epsilon = 0.2
+        self._epsilon = epsilon
         self._discount_gamma = discount_gamma
         self._gae_lambda = gae_lambda
         self._num_epochs = num_epochs
         self._batch_size = batch_size
-        self.training_data_raw = []
-        self._training_data_batched = []
 
-    def get_action(self, current_obs):
-        action_prob_dist = self._policy(current_obs)
-        action = action_prob_dist.sample()
-        value = self._value_fcn(current_obs)
-        
-        return action.detach(), action_prob_dist, value.detach()
+        self.state_data = []
+        self.action_data = []
+        self.logprobs_data = []
+        self.rewards_data = []
+        self.dones_data = []
+        self.value_ests_data = []
+
+        self.actor = nn.Sequential(
+            layer_init(nn.Linear(np.array(obs_space_size).prod(), 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, action_space_size), std=0.01),
+        )
+        self.critic = nn.Sequential(
+            layer_init(nn.Linear(np.array(obs_space_size).prod(), 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 1), std=1.0),
+        )
+
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=3e-4, eps=1e-5)
+
+    def get_action(self, current_state):
+        logits = self.actor(x)
+        probs = Categorical(logits=logits)
+        action = probs.sample()
+
+        return action, probs.log_prob(action), probs.entropy(), self.get_value(current_state)
     
     def get_value(self, state):
-        return self._value_fcn(state)
+        return self.critic(state)
 
     # start with very simple advantage function calculation and make it more complex later (GAE, etc)
-    def store_rollout(self, rollout_data_list, value_target_t):
-        # loop in reverse to prevent re-computing values
-        advantage = np.zeros(len(rollout_data_list), dtype=np.float32)
+    def store_rollout(self, state, action, log_probs, rewards, done, value_ests):
+        self.state_data.append(state)
+        self.action_data.append(action)
+        self.logprobs_data.append(log_probs)
+        self.rewards_data.append(rewards)
+        self.dones_data.append(done)
+        self.value_ests_data.append(value_ests)
 
-        for t in range(len(rollout_data_list)-1):
-            discount = 1
-            a_t = 0
-            for k in range(t, len(rollout_data_list)-1):
-                a_t += discount*(rollout_data_list[k][2] + self._discount_gamma*rollout_data_list[k+1][3]*\
-                        (1-int(rollout_data_list[k][5])) - rollout_data_list[k][3])
-                discount *= self._discount_gamma*self._gae_lambda
-            advantage[t] = a_t
-        advantage = torch.tensor(advantage).to(self.device)
-        advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-9)
-        for i in range(len(rollout_data_list)):
-            rollout_data_list[i] = rollout_data_list[i] + (advantage[i].reshape((1, 1)),)
-        self.training_data_raw += rollout_data_list
+    def calc_advantage(self, next_state, next_done, num_steps):
+         with torch.no_grad():
+            next_value = self.get_value(next_state).reshape(1, -1)
+            advantages = torch.zeros_like(self.rewards_data).to(self.device)
+            lastgaelam = 0
+            for t in reversed(range(num_steps)):
+                if t == num_steps - 1:
+                    nextnonterminal = 1.0 - next_done
+                    nextvalues = next_value
+                else:
+                    nextnonterminal = 1.0 - self.dones_data[t + 1]
+                    nextvalues = self.value_ests_data[t + 1]
+                delta = self.rewards_data[t] + self.discount_gamma * nextvalues * nextnonterminal - self.value_ests_data[t]
+                advantages[t] = lastgaelam = delta + self.discount_gamma * self.gae_lambda * nextnonterminal * lastgaelam
+            returns = advantages + self.value_ests_data
 
-    def create_single_batch(self):
-        state_tensor = torch.empty((0, self._obs_space_size)).to(self.device)
-        action_tensor = torch.empty((0, 1)).to(self.device)
-        old_action_prob_tensor = torch.empty((0, 1)).to(self.device)
-        value_tensor = torch.empty((0, 1)).to(self.device)
-        advantage_tensor = torch.empty((0, 1)).to(self.device)
-        current_size = 0
-        for i in range(self._batch_size):
-            if not self.training_data_raw:
-                if current_size > 0:
-                    self._training_data_batched.append((state_tensor, action_tensor, \
-                                                        old_action_prob_tensor, value_tensor, 
-                                                        advantage_tensor))
-                return False  # ran out of samples
-            state_t, action_t, _, value_target_t, \
-                old_action_prob_t, _, advantage_t = self.training_data_raw.pop(0)
-            state_tensor = torch.cat((state_tensor, state_t), dim=0)
-            action_tensor = torch.cat((action_tensor, action_t), dim=0)
-            old_action_prob_tensor = torch.cat((old_action_prob_tensor, old_action_prob_t), dim=0)
-            value_tensor = torch.cat((value_tensor, value_target_t), dim=0)
-            advantage_tensor = torch.cat((advantage_tensor, advantage_t), dim=0)
-            current_size =+ 1
-
-        self._training_data_batched.append((state_tensor, action_tensor, \
-                                            old_action_prob_tensor, value_tensor,
-                                            advantage_tensor))
-        return True
+            return returns, advantages
 
     def batch_data(self):
-        random.shuffle(self.training_data_raw)
-        while(self.create_single_batch()):
-            continue
-        return
+        pass
 
-    def _calculate_loss(self, batch):
-        # extract data
-        state_tensor, action_tensor, old_action_prob_tensor, value_tensor, advantage_tensor = batch
-        _, action_prob_dist_t, _ = self.get_action(state_tensor)
-        action_prob_tensor = action_prob_dist_t.log_prob(action_tensor)
-        action_prob_tensor = torch.exp(action_prob_tensor)
-        old_action_prob_tensor = torch.exp(old_action_prob_tensor)
-        prob_ratio = action_prob_tensor.detach() / old_action_prob_tensor.detach()
+    def _calculate_loss(self, batch):        
 
-        # calculate losses
-        loss_clip = torch.min(prob_ratio*advantage_tensor, 
-                              torch.clip(prob_ratio, 1-self._epsilon, 1+self._epsilon)*advantage_tensor).mean()
-        loss_value = F.mse_loss(self._value_fcn(state_tensor), advantage_tensor + value_tensor)
-        loss_entropy = action_prob_dist_t.entropy().mean()
-        loss_total = -loss_clip + 0.5 * loss_value - 0.0* loss_entropy
+
+
         wandb.log({'loss_clip': loss_clip})
         wandb.log({'loss_value': loss_value})
         wandb.log({'loss_entropy': loss_entropy})
         wandb.log({'loss_total': loss_total})
 
         # backprop and update weights
-        self._value_fcn.optimizer.zero_grad()
-        self._policy.optimizer.zero_grad()
+        self.optimizer.zero_grad()
         loss_total.backward()
-        self._value_fcn.optimizer.step()
-        self._policy.optimizer.step()
+        self.optimizer.step()
 
-    def learn(self):
-        # update policy
-        self.batch_data()
-        self._policy.train()
-        self._value_fcn.train()
-
+    def learn(self):        
+        b_inds = np.arange(self._batch_size)
+        clipfracs = []
+        
         for e in range(self._num_epochs):
-            # TODO: loop through individual samples for now, but switch to batches
-            for batch in self._training_data_batched:
-                self._calculate_loss(batch)
+            np.random.shuffle(b_inds)
+            for start in range(0, self._batch_size, args.minibatch_size):
+                end = start + args.minibatch_size
+                mb_inds = b_inds[start:end]
 
         # clear all previous training data
         self._training_data_batched.clear()

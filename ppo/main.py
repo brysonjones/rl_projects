@@ -2,7 +2,7 @@
 import sys
 import gym
 import torch
-from ppo.ppo import PPO
+from ppo.ppo import PPO_Agent
 import ppo.policy
 import ppo.value_network
 import numpy as np
@@ -23,58 +23,46 @@ if __name__ == "__main__":
     #                    "policy - num_hidden": 64, 
     #                    "value_net - num_hidden": 64, 
     #                    "optimizer - learning_rate": 1e-4})
-    policy = ppo.policy.Policy(action_space_size, obs_space_size, num_layers=1, num_hidden=256)
-    value_fcn = ppo.value_network.ValueNet(obs_space_size, num_layers=1, num_hidden=256)
+    # policy = ppo.policy.Policy(action_space_size, obs_space_size, num_layers=1, num_hidden=256)
+    # value_fcn = ppo.value_network.ValueNet(obs_space_size, num_layers=1, num_hidden=256)
 
-    model = PPO(policy, value_fcn, obs_space_size, action_space_size)
+    model = PPO_Agent(obs_space_size, action_space_size)
+    model.to(device)
 
     render_rate = 100
     num_episodes = 5000
-    num_epochs = 3  # TODO: tune this
+    num_steps = 200  # TODO: change this for not cartpoleV0
     for episode in range(num_episodes):
         state = env.reset()
-        rollout_data_list = []
+        done = False
         reward_list = []
         steps = 0
-        value_target_t = 0
-        while True:
+        for step in range(num_steps):
             steps += 1
             if episode % render_rate == 0:
                 env.render()
             # get action and probability distribution
             state = torch.from_numpy(state).type(torch.FloatTensor).unsqueeze(0).to(device)
-            action_t, action_prob_dist, value = model.get_action(state)
+            with torch.no_grad():
+                action_t, log_probs_t, _, value_est_t = model.get_action(state)
             # take step
             state_new, reward, done, info = env.step(action_t.item())
-
-            # TODO: is a tuple really the best DS here? Maybe a dict or named-tuple is better?
-            rollout_tuple_t = (state, 
-                               action_t.reshape((1, 1)), 
-                               torch.tensor(reward, dtype=torch.float).reshape((1, 1)).to(device), 
-                               value, 
-                               action_prob_dist.log_prob(action_t).reshape((1, 1)),
-                               done)
-            state = state_new
-            rollout_data_list.append(rollout_tuple_t)
+            model.store_rollout(state, action_t, log_probs_t, reward, done, value_est_t)      
             reward_list.append(reward)
+            state = state_new
 
             if done:
                 # TODO try to make all datasets the same length by resetting to a random state and continuing
                 #      this will help with training efficiency by making data length the same for batching           
-                value_target_t = 0  # TODO: revisit page 15 of the Bick paper to look at this estimation when the trajectory ends non-terminally
                 if episode % 25 == 0:
                     sys.stdout.write("episode: {}, total reward: {}, length: {}\n".format(episode,
                                                                                           np.round(np.sum(reward_list), decimals=3),
                                                                                           steps))
                     wandb.log({'episode': episode, 
                                'total reward': np.round(np.sum(reward_list), decimals=3)})
-                if len(model.training_data_raw) < 500:   
-                    model.store_rollout(rollout_data_list, value_target_t)                     
                     state = env.reset()
-                    rollout_data_list = []
                     reward_list = []
                     steps = 0
-                    value_target_t = 0
                     continue
-                break
+        returns, advantages = model.calc_advantage(state_new, done, num_steps)
         model.learn()
