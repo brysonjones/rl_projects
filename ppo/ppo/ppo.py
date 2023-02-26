@@ -35,18 +35,18 @@ class PPO_Agent(nn.Module):
         self.value_ests_data = torch.zeros((num_steps)).to(self.device)
 
         self.actor = nn.Sequential(
-            layer_init(nn.Linear(np.array(obs_space_size).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, action_space_size), std=0.01),
+            layer_init(nn.Linear(np.array(obs_space_size).prod(), 256)),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, 256)),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, action_space_size), std=0.01),
         )
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(obs_space_size).prod(), 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0),
+            layer_init(nn.Linear(np.array(obs_space_size).prod(), 256)),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, 256)),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, 1), std=1.0),
         )
 
         self.optimizer = None
