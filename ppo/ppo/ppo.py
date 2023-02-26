@@ -12,10 +12,11 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
 
-class PPO_Agent():
-    def __init__(self, obs_space_size, action_space_size, 
+class PPO_Agent(nn.Module):
+    def __init__(self, obs_space_size, action_space_size, num_steps,
                  epsilon=0.2, discount_gamma=0.99, gae_lambda=0.95, num_epochs=4,
-                 batch_size=64):
+                 batch_size=40):
+        super(PPO_Agent, self).__init__()
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         self._obs_space_size = obs_space_size
@@ -26,12 +27,12 @@ class PPO_Agent():
         self._num_epochs = num_epochs
         self._batch_size = batch_size
 
-        self.state_data = []
-        self.action_data = []
-        self.logprobs_data = []
-        self.rewards_data = []
-        self.dones_data = []
-        self.value_ests_data = []
+        self.state_data = torch.zeros((num_steps, obs_space_size)).to(self.device)
+        self.action_data = torch.zeros((num_steps)).to(self.device)
+        self.logprobs_data = torch.zeros((num_steps)).to(self.device)
+        self.rewards_data = torch.zeros((num_steps)).to(self.device)
+        self.dones_data = torch.zeros((num_steps)).to(self.device)
+        self.value_ests_data = torch.zeros((num_steps)).to(self.device)
 
         self.actor = nn.Sequential(
             layer_init(nn.Linear(np.array(obs_space_size).prod(), 64)),
@@ -48,10 +49,10 @@ class PPO_Agent():
             layer_init(nn.Linear(64, 1), std=1.0),
         )
 
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=3e-4, eps=1e-5)
+        self.optimizer = None
 
     def get_action(self, current_state):
-        logits = self.actor(x)
+        logits = self.actor(current_state)
         probs = Categorical(logits=logits)
         action = probs.sample()
 
@@ -61,16 +62,18 @@ class PPO_Agent():
         return self.critic(state)
 
     # start with very simple advantage function calculation and make it more complex later (GAE, etc)
-    def store_rollout(self, state, action, log_probs, rewards, done, value_ests):
-        self.state_data.append(state)
-        self.action_data.append(action)
-        self.logprobs_data.append(log_probs)
-        self.rewards_data.append(rewards)
-        self.dones_data.append(done)
-        self.value_ests_data.append(value_ests)
+    def store_rollout(self, step, state, action, log_probs, rewards, done, value_ests):
+        self.state_data[step, :] = state
+        self.action_data[step] = action
+        self.logprobs_data[step] = log_probs
+        self.rewards_data[step] =  rewards
+        self.dones_data[step] = done
+        self.value_ests_data[step] = value_ests
 
     def calc_advantage(self, next_state, next_done, num_steps):
-         with torch.no_grad():
+
+        next_state = torch.tensor(next_state).to(self.device)
+        with torch.no_grad():
             next_value = self.get_value(next_state).reshape(1, -1)
             advantages = torch.zeros_like(self.rewards_data).to(self.device)
             lastgaelam = 0
@@ -81,38 +84,63 @@ class PPO_Agent():
                 else:
                     nextnonterminal = 1.0 - self.dones_data[t + 1]
                     nextvalues = self.value_ests_data[t + 1]
-                delta = self.rewards_data[t] + self.discount_gamma * nextvalues * nextnonterminal - self.value_ests_data[t]
-                advantages[t] = lastgaelam = delta + self.discount_gamma * self.gae_lambda * nextnonterminal * lastgaelam
+                delta = self.rewards_data[t] + self._discount_gamma * nextvalues * nextnonterminal - self.value_ests_data[t]
+                advantages[t] = lastgaelam = delta + self._discount_gamma * self._gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + self.value_ests_data
 
             return returns, advantages
 
-    def batch_data(self):
-        pass
 
-    def _calculate_loss(self, batch):        
-
-
-
-        wandb.log({'loss_clip': loss_clip})
-        wandb.log({'loss_value': loss_value})
-        wandb.log({'loss_entropy': loss_entropy})
-        wandb.log({'loss_total': loss_total})
-
-        # backprop and update weights
-        self.optimizer.zero_grad()
-        loss_total.backward()
-        self.optimizer.step()
-
-    def learn(self):        
-        b_inds = np.arange(self._batch_size)
+    def learn(self, num_steps, returns, advantages):        
+        b_inds = np.arange(num_steps)
         clipfracs = []
         
         for e in range(self._num_epochs):
             np.random.shuffle(b_inds)
-            for start in range(0, self._batch_size, args.minibatch_size):
-                end = start + args.minibatch_size
-                mb_inds = b_inds[start:end]
+            for start in range(0, num_steps, self._batch_size):
+                end = start + self._batch_size
+                batch_inds = b_inds[start:end]
 
-        # clear all previous training data
-        self._training_data_batched.clear()
+                batch_states = self.state_data[batch_inds]
+                batch_actions = self.action_data[batch_inds]
+                batch_log_probs = self.logprobs_data[batch_inds]
+                logits = self.actor(batch_states)
+                probs = Categorical(logits=logits)
+                new_log_probs = probs.log_prob(batch_actions)
+                entropy = probs.entropy()
+                new_value = self.get_value(batch_states)
+                logratio = new_log_probs - batch_log_probs
+                ratio = logratio.exp()
+
+                with torch.no_grad():
+                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
+                    old_approx_kl = (-logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [((ratio - 1.0).abs() > self._epsilon).float().mean().item()]
+
+
+                batch_advantages = advantages[batch_inds]
+                batch_advantages = (batch_advantages - batch_advantages.mean()) / (batch_advantages.std() + 1e-8)
+                pg_loss1 = batch_advantages * ratio
+                pg_loss2 = batch_advantages * torch.clamp(ratio, 1 - self._epsilon, 1 + self._epsilon)
+                pg_loss = -torch.min(pg_loss1, pg_loss2).mean()
+
+
+                batch_returns = returns[batch_inds]
+                v_loss = 0.5 * ((new_value - batch_returns) ** 2).mean()
+
+                entropy_loss = entropy.mean()
+
+                loss = pg_loss - 0.1 * entropy_loss + v_loss * 0.5
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                # nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)  ## TODO: maybe add this in?
+                self.optimizer.step()
+
+                wandb.log({'loss_clip': pg_loss})
+                wandb.log({'loss_value': v_loss})
+                wandb.log({'loss_entropy': entropy_loss})
+                wandb.log({'loss_total': loss})
+
+

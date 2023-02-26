@@ -13,9 +13,10 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # init environment
-    env = gym.make("CartPole-v0")
+    env = gym.make("CartPole-v1")
     action_space_size = env.action_space.n
     obs_space_size = env.observation_space.shape[0]
+    num_steps = 500  # TODO: change this for not cartpoleV0
 
     # init models
     # wandb.init(config={"policy - num_layers": 2, 
@@ -26,12 +27,12 @@ if __name__ == "__main__":
     # policy = ppo.policy.Policy(action_space_size, obs_space_size, num_layers=1, num_hidden=256)
     # value_fcn = ppo.value_network.ValueNet(obs_space_size, num_layers=1, num_hidden=256)
 
-    model = PPO_Agent(obs_space_size, action_space_size)
+    model = PPO_Agent(obs_space_size, action_space_size, num_steps=num_steps)
+    model.optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, eps=1e-5)
     model.to(device)
 
     render_rate = 100
     num_episodes = 5000
-    num_steps = 200  # TODO: change this for not cartpoleV0
     for episode in range(num_episodes):
         state = env.reset()
         done = False
@@ -47,7 +48,7 @@ if __name__ == "__main__":
                 action_t, log_probs_t, _, value_est_t = model.get_action(state)
             # take step
             state_new, reward, done, info = env.step(action_t.item())
-            model.store_rollout(state, action_t, log_probs_t, reward, done, value_est_t)      
+            model.store_rollout(step, state, action_t, log_probs_t, reward, done, value_est_t)      
             reward_list.append(reward)
             state = state_new
 
@@ -60,9 +61,9 @@ if __name__ == "__main__":
                                                                                           steps))
                     wandb.log({'episode': episode, 
                                'total reward': np.round(np.sum(reward_list), decimals=3)})
-                    state = env.reset()
-                    reward_list = []
-                    steps = 0
-                    continue
+                state = env.reset()
+                reward_list = []
+                steps = 0
+                continue
         returns, advantages = model.calc_advantage(state_new, done, num_steps)
-        model.learn()
+        model.learn(num_steps, returns, advantages)
