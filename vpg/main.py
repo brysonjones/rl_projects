@@ -1,7 +1,4 @@
-'''
-@brief implementation of Vanilla Polict Gradient algorithm to learn more about
-       the field of deep RL
-'''
+
 
 import sys
 import torch
