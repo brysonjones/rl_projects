@@ -6,3 +6,4 @@ reimplementation of common methods
 * [REINFORCE](./vpg_implementation/)
 * [DQN](./dqn)
 * [PPO](./ppo)
+* [DDPG](./ddpg)
