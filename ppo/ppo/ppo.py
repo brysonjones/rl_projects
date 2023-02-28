@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 import random
 import numpy as np
-import wandb
+# import wandb
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
@@ -131,16 +131,16 @@ class PPO_Agent(nn.Module):
 
                 entropy_loss = entropy.mean()
 
-                loss = pg_loss - 0.1 * entropy_loss + v_loss * 0.5
+                loss = pg_loss - 0.01 * entropy_loss + v_loss * 0.2
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 # nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)  ## TODO: maybe add this in?
                 self.optimizer.step()
 
-                wandb.log({'loss_clip': pg_loss})
-                wandb.log({'loss_value': v_loss})
-                wandb.log({'loss_entropy': entropy_loss})
-                wandb.log({'loss_total': loss})
+                # wandb.log({'loss_clip': pg_loss})
+                # wandb.log({'loss_value': v_loss})
+                # wandb.log({'loss_entropy': entropy_loss})
+                # wandb.log({'loss_total': loss})
 
 

@@ -6,10 +6,10 @@ from ppo.ppo import PPO_Agent
 import ppo.policy
 import ppo.value_network
 import numpy as np
-import wandb
+# import wandb
 
 if __name__ == "__main__":
-    wandb.init(project="rl-ppo-project")
+    # wandb.init(project="rl-ppo-project")
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # init environment
@@ -17,15 +17,6 @@ if __name__ == "__main__":
     action_space_size = env.action_space.n
     obs_space_size = env.observation_space.shape[0]
     num_steps = 500  # TODO: change this for not cartpoleV0
-
-    # init models
-    # wandb.init(config={"policy - num_layers": 2, 
-    #                    "value_net - num_layers": 2,
-    #                    "policy - num_hidden": 64, 
-    #                    "value_net - num_hidden": 64, 
-    #                    "optimizer - learning_rate": 1e-4})
-    # policy = ppo.policy.Policy(action_space_size, obs_space_size, num_layers=1, num_hidden=256)
-    # value_fcn = ppo.value_network.ValueNet(obs_space_size, num_layers=1, num_hidden=256)
 
     model = PPO_Agent(obs_space_size, action_space_size, num_steps=num_steps)
     model.optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, eps=1e-5)
@@ -59,8 +50,8 @@ if __name__ == "__main__":
                     sys.stdout.write("episode: {}, total reward: {}, length: {}\n".format(episode,
                                                                                           np.round(np.sum(reward_list), decimals=3),
                                                                                           steps))
-                    wandb.log({'episode': episode, 
-                               'total reward': np.round(np.sum(reward_list), decimals=3)})
+                    # wandb.log({'episode': episode, 
+                    #            'total reward': np.round(np.sum(reward_list), decimals=3)})
                 state = env.reset()
                 reward_list = []
                 steps = 0
