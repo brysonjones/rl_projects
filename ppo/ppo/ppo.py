@@ -39,10 +39,14 @@ class PPO_Agent(nn.Module):
             nn.ReLU(),
             layer_init(nn.Linear(256, 256)),
             nn.ReLU(),
+            layer_init(nn.Linear(256, 256)),
+            nn.ReLU(),
             layer_init(nn.Linear(256, action_space_size), std=0.01),
         )
         self.critic = nn.Sequential(
             layer_init(nn.Linear(np.array(obs_space_size).prod(), 256)),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, 256)),
             nn.ReLU(),
             layer_init(nn.Linear(256, 256)),
             nn.ReLU(),

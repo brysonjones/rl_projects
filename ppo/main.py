@@ -19,11 +19,13 @@ if __name__ == "__main__":
     num_steps = 500  # TODO: change this for not cartpoleV0
 
     model = PPO_Agent(obs_space_size, action_space_size, num_steps=num_steps)
-    model.optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, eps=1e-5)
+    model.optimizer = torch.optim.Adam(model.parameters(), lr=2.5e-4, eps=1e-5)
     model.to(device)
 
     render_rate = 100
     num_episodes = 5000
+    cum_rewards = 0
+    total_finished_episodes = 0
     for episode in range(num_episodes):
         state = env.reset()
         done = False
@@ -46,10 +48,11 @@ if __name__ == "__main__":
             if done:
                 # TODO try to make all datasets the same length by resetting to a random state and continuing
                 #      this will help with training efficiency by making data length the same for batching           
+                cum_rewards = (cum_rewards * total_finished_episodes + np.sum(reward_list)) / (total_finished_episodes + 1)
+                total_finished_episodes =+ 1
                 if episode % 25 == 0:
-                    sys.stdout.write("episode: {}, total reward: {}, length: {}\n".format(episode,
-                                                                                          np.round(np.sum(reward_list), decimals=3),
-                                                                                          steps))
+                    sys.stdout.write("episode: {}, rolling rewards: {}\n".format(episode, cum_rewards))
+
                     # wandb.log({'episode': episode, 
                     #            'total reward': np.round(np.sum(reward_list), decimals=3)})
                 state = env.reset()
