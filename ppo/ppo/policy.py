@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
+from ppo.helper import layer_init
 
 class Policy(nn.Module):
     def __init__(self, action_space, obs_space, num_layers=2, num_hidden=32):
@@ -13,26 +14,17 @@ class Policy(nn.Module):
         self.obs_size = obs_space
 
         # specify network architecture
-        self.layer_list = nn.Sequential(nn.Linear(obs_space, num_hidden), 
-                                         nn.ReLU(),
-                                         nn.Linear(num_hidden, num_hidden),
-                                         nn.ReLU(), 
-                                         nn.Linear(num_hidden, self.action_size),
-                                         nn.Softmax(dim=-1))
-        # self.layer_list = nn.ModuleList([nn.Linear(obs_space, num_hidden), 
-        #                             nn.Tanh()])
-        # for i in range(num_layers):
-        #     self.layer_list.append(nn.Linear(num_hidden, num_hidden))
-        #     self.layer_list.append(nn.Tanh())
-        # self.layer_list.append(nn.Linear(num_hidden, self.action_size))
+        self.layer_list = nn.ModuleList([layer_init(nn.Linear(obs_space, num_hidden)), 
+                                         nn.LeakyReLU()])
+        for i in range(num_layers):
+            self.layer_list.append(layer_init(nn.Linear(num_hidden, num_hidden)))
+            self.layer_list.append(nn.LeakyReLU())
+        self.layer_list.append(layer_init(nn.Linear(num_hidden, self.action_size), std=0.01))
         # self.layer_list.append(nn.Softmax(dim=-1))
 
-        # self._layers = nn.Sequential(*self.layer_list)
+        self._layers = nn.Sequential(*self.layer_list)
 
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.0003, eps=1e-5)
-
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=2.5e-4, eps=1e-5)
 
     def forward(self, x):
-        dist = self.layer_list(x)
-        dist = Categorical(dist)
-        return dist
+        return self._layers(x)

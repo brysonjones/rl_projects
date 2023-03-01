@@ -3,14 +3,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
+import ppo.policy
+import ppo.value_network
 import random
 import numpy as np
 # import wandb
-
-def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
-    torch.nn.init.orthogonal_(layer.weight, std)
-    torch.nn.init.constant_(layer.bias, bias_const)
-    return layer
 
 class PPO_Agent(nn.Module):
     def __init__(self, obs_space_size, action_space_size, num_steps,
@@ -34,29 +31,11 @@ class PPO_Agent(nn.Module):
         self.dones_data = torch.zeros((num_steps)).to(self.device)
         self.value_ests_data = torch.zeros((num_steps)).to(self.device)
 
-        self.actor = nn.Sequential(
-            layer_init(nn.Linear(np.array(obs_space_size).prod(), 256)),
-            nn.ReLU(),
-            layer_init(nn.Linear(256, 256)),
-            nn.ReLU(),
-            layer_init(nn.Linear(256, 256)),
-            nn.ReLU(),
-            layer_init(nn.Linear(256, action_space_size), std=0.01),
-        )
-        self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(obs_space_size).prod(), 256)),
-            nn.ReLU(),
-            layer_init(nn.Linear(256, 256)),
-            nn.ReLU(),
-            layer_init(nn.Linear(256, 256)),
-            nn.ReLU(),
-            layer_init(nn.Linear(256, 1), std=1.0),
-        )
-
-        self.optimizer = None
+        self.actor = ppo.policy.Policy(action_space_size, obs_space_size, num_layers=2, num_hidden=256)
+        self.critic = ppo.value_network.ValueNet(obs_space_size, num_layers=2, num_hidden=256)
 
     def get_action(self, current_state):
-        logits = self.actor(current_state)
+        logits = self.actor.forward(current_state)
         probs = Categorical(logits=logits)
         action = probs.sample()
 
@@ -129,7 +108,6 @@ class PPO_Agent(nn.Module):
                 pg_loss2 = batch_advantages * torch.clamp(ratio, 1 - self._epsilon, 1 + self._epsilon)
                 pg_loss = -torch.min(pg_loss1, pg_loss2).mean()
 
-
                 batch_returns = returns[batch_inds]
                 v_loss = 0.5 * ((new_value - batch_returns) ** 2).mean()
 
@@ -137,10 +115,13 @@ class PPO_Agent(nn.Module):
 
                 loss = pg_loss - 0.01 * entropy_loss + v_loss * 0.2
 
-                self.optimizer.zero_grad()
+                self.actor.optimizer.zero_grad()
+                self.critic.optimizer.zero_grad()
                 loss.backward()
                 # nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)  ## TODO: maybe add this in?
-                self.optimizer.step()
+                self.actor.optimizer.step()
+                self.critic.optimizer.step()
+
 
                 # wandb.log({'loss_clip': pg_loss})
                 # wandb.log({'loss_value': v_loss})
