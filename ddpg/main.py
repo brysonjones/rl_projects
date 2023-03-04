@@ -1,13 +1,25 @@
 
+import gymnasium as gym
 import sys
-import gym
 import torch
 import numpy as np
+import yaml
+from absl import app
+from absl import flags
 
-if __name__ == "__main__":
+FLAGS = flags.FLAGS
+flags.DEFINE_string("config_file_path", None, 
+                    "A configuration file for the environment")
+
+# Required flag.
+flags.mark_flag_as_required("config_file_path")
+
+def main(argv):
+    config_file = open(FLAGS.config_file_path, "r")
+    config = yaml.load(config_file, Loader=yaml.FullLoader)
 
     # init environment
-    env = gym.make("") # TODO: pick a good, simple continuous action space
+    env = gym.make(config["env"])
     action_space_size = env.action_space.n
     obs_space_size = env.observation_space.shape[0]
 
@@ -25,4 +37,10 @@ if __name__ == "__main__":
         # execute action
         # get next_state, rewards, done signal
         # store all data in replay buffer
+
+    # clean up resources
+    config_file.close()
         
+
+if __name__ == "__main__":
+  app.run(main)
