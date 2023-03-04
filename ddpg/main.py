@@ -20,9 +20,10 @@ def main(argv):
 
     # init environment
     env = gym.make(config["env"])
-    action_space_size = env.action_space.n
+    action_space_size = env.action_space.shape[0]
+    action_space_range = (env.action_space.low[0], env.action_space.high[0])
     obs_space_size = env.observation_space.shape[0]
-
+    
     # initialize networks
     # DQN
     # policy
