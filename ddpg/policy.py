@@ -24,6 +24,5 @@ class PolicyNetwork(nn.Module):
                                                      *layer_list)
                                                 
     def forward(self, x):
-        x = self.flatten(x)
         logits = self.linear_activation_stack(x)
         return logits
