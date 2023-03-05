@@ -7,6 +7,11 @@ import yaml
 from absl import app
 from absl import flags
 
+# import custom modules
+import policy
+import dqn
+import memory
+
 FLAGS = flags.FLAGS
 flags.DEFINE_string("config_file_path", None, 
                     "A configuration file for the environment")
@@ -26,10 +31,18 @@ def main(argv):
     obs_space_size = env.observation_space.shape[0]
     
     # initialize networks
-    # DQN
+    # q_network = dqn.DQN(obs_space_size, action_space_size,
+    #                     config['network']['num_hidden'],
+    #                     config['network']['num_layers'],
+    #                     config['network']['activation'])
+    policy_network = policy.PolicyNetwork(obs_space_size, action_space_size,
+                        config['network']['num_hidden'],
+                        config['network']['num_layers'],
+                        config['network']['activation'])
     # policy
 
     # init replay buffer
+    replay_buffer = memory.ReplayMemory(config['replay_buffer']['max_size'])
 
     # create target networks
     # TODO: is that just copying?

@@ -8,7 +8,6 @@ class PolicyNetwork(nn.Module):
                  num_hidden, num_layers, activation='ReLU'):
         super().__init__()
 
-
         layer_list = []
         for i_layer in range(num_layers):
             if len(layer_list) == 0:
