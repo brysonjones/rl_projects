@@ -1,12 +1,18 @@
 
+import torch
 import dqn
 import policy
 import memory
+import copy
+import numpy as np
 
 class DDPG():
     def __init__(self, obs_space_size, action_space_size, 
                  action_space_range, config) -> None:
-        
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.config = config
+        self.action_space_size = action_space_size
+
         self.q_network = dqn.DQN(obs_space_size, action_space_size,
                                  config['network']['num_hidden'],
                                  config['network']['num_layers'],
@@ -19,10 +25,52 @@ class DDPG():
 
         self.replay_buffer = memory.ReplayMemory(config['replay_buffer']['max_size'])
 
+        # copy networks to target networks
+        self.target_q_network = copy.deepcopy(self.q_network)
+        self.target_policy_network = copy.deepcopy(self.policy_network)
+
+        # add everything to GPU if available
+        self.q_network.to(self.device)
+        self.policy_network.to(self.device)
+        self.target_q_network.to(self.device)
+        self.target_policy_network.to(self.device)
+
+
     def select_action(self, state):
-        pass
+        action = torch.clamp(self.target_policy_network(state), 
+                             self.action_space_range[0], 
+                             self.action_space_range[1]).numpy()
+        action = action + np.random.normal(size=(self.action_space_size))
+        return action
 
     def store_memory(self, *args):
         self.replay_buffer.push(*args)
 
-    
+    def update_target_network_weights(self):  
+        rho = self.config["target_network"]["rho"]
+
+        # update target dqn
+        dqn_params = self.q_network.named_parameters()
+        target_dqn_params = self.target_q_network.named_parameters()
+
+        dict_target_dqn_params = dict(target_dqn_params)
+
+        for name1, param1 in dqn_params:
+            if name1 in dict_target_dqn_params:
+                dict_target_dqn_params[name1].data.copy_(rho*dict_target_dqn_params[name1].data + 
+                                                         (1-rho)*param1.data)
+
+        self.target_q_network.load_state_dict(dict_target_dqn_params)
+
+        # update target policy
+        policy_params = self.policy_network.named_parameters()
+        target_policy_params = self.target_policy_network.named_parameters()
+
+        dict_target_policy_params = dict(target_policy_params)
+
+        for name1, param1 in policy_params:
+            if name1 in dict_target_policy_params:
+                dict_target_policy_params[name1].data.copy_(rho*dict_target_policy_params[name1].data + 
+                                                            (1-rho)*param1.data)
+
+        self.target_policy_network.load_state_dict(dict_target_policy_params)

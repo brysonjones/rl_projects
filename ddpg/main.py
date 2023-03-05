@@ -32,8 +32,6 @@ def main(argv):
     ddpg_system = ddpg.DDPG(obs_space_size, action_space_size, 
                             action_space_range, config)
 
-    # create target networks
-    # TODO: is that just copying?
 
     # loop()
         # select action, and add zero mean gaussian noise to selected actions

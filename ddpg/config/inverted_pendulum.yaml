@@ -4,6 +4,8 @@ network:
   num_layers: 2
   num_hidden: 32
   activation: ReLU
+target_network:
+  rho: 0.9  # rho for polyak averaging
 optimizer:
   lr: 1e-4
 replay_buffer:
