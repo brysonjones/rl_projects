@@ -1,2 +1,10 @@
 env: InvertedPendulum-v4
 random_seed: 7
+network:
+  num_layers: 2
+  num_hidden: 32
+  activation: ReLU
+optimizer:
+  lr: 1e-4
+replay_buffer:
+  max_size: 5000
