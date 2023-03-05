@@ -40,6 +40,12 @@ def main(argv):
         # execute action
         # get next_state, rewards, done signal
         # store all data in replay buffer
+        # if (time to update):
+            # sample batch from memory
+            # compute targets with target networks
+            # update q function
+            # update policy
+            # update target networks with polyak-ing
 
     # clean up resources
     config_file.close()

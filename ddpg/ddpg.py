@@ -18,4 +18,11 @@ class DDPG():
         self.action_space_range = action_space_range
 
         self.replay_buffer = memory.ReplayMemory(config['replay_buffer']['max_size'])
-        
+
+    def select_action(self, state):
+        pass
+
+    def store_memory(self, *args):
+        self.replay_buffer.push(*args)
+
+    
