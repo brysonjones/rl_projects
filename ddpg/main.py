@@ -8,9 +8,7 @@ from absl import app
 from absl import flags
 
 # import custom modules
-import policy
-import dqn
-import memory
+import ddpg
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("config_file_path", None, 
@@ -30,19 +28,9 @@ def main(argv):
     action_space_range = (env.action_space.low[0], env.action_space.high[0])
     obs_space_size = env.observation_space.shape[0]
     
-    # initialize networks
-    # q_network = dqn.DQN(obs_space_size, action_space_size,
-    #                     config['network']['num_hidden'],
-    #                     config['network']['num_layers'],
-    #                     config['network']['activation'])
-    policy_network = policy.PolicyNetwork(obs_space_size, action_space_size,
-                        config['network']['num_hidden'],
-                        config['network']['num_layers'],
-                        config['network']['activation'])
-    # policy
-
-    # init replay buffer
-    replay_buffer = memory.ReplayMemory(config['replay_buffer']['max_size'])
+    # initialize DDPG class
+    ddpg_system = ddpg.DDPG(obs_space_size, action_space_size, 
+                            action_space_range, config)
 
     # create target networks
     # TODO: is that just copying?
