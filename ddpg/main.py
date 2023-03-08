@@ -24,6 +24,7 @@ def main(argv):
     # init environment
     env = gym.make(config["env"])
     random_seed = config["random_seed"]
+    state = env.reset(seed=random_seed)
     action_space_size = env.action_space.shape[0]
     action_space_range = (env.action_space.low[0], env.action_space.high[0])
     obs_space_size = env.observation_space.shape[0]
@@ -32,18 +33,19 @@ def main(argv):
     ddpg_system = ddpg.DDPG(obs_space_size, action_space_size, 
                             action_space_range, config)
 
-
+    # init environmen
     # loop()
+    counter = 0
+    while(True):
         # select action, and add zero mean gaussian noise to selected actions
-        # execute action
-        # get next_state, rewards, done signal
+        action = ddpg_system.select_action(state)
+        # execute action - get next_state, rewards, done signal
+        next_state, reward, done, _, _ = env.step(action)
         # store all data in replay buffer
+        ddpg_system.store_memory(state, action, next_state, reward, done)
         # if (time to update):
-            # sample batch from memory
-            # compute targets with target networks
-            # update q function
-            # update policy
-            # update target networks with polyak-ing
+        if (counter % config["update_period"]):
+
 
     # clean up resources
     config_file.close()

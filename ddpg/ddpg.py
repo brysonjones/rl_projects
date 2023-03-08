@@ -3,15 +3,18 @@ import torch
 import dqn
 import policy
 import memory
+from memory import Transition
 import copy
 import numpy as np
 
 class DDPG():
     def __init__(self, obs_space_size, action_space_size, 
-                 action_space_range, config) -> None:
+                 action_space_range, config, mode="train") -> None:
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.config = config
         self.action_space_size = action_space_size
+        self.mode = mode
+        self.batch_size = config["batch_size"]
 
         self.q_network = dqn.DQN(obs_space_size, action_space_size,
                                  config['network']['num_hidden'],
@@ -37,10 +40,12 @@ class DDPG():
 
 
     def select_action(self, state):
+        state = torch.from_numpy(state).squeeze()
         action = torch.clamp(self.target_policy_network(state), 
                              self.action_space_range[0], 
                              self.action_space_range[1]).numpy()
-        action = action + np.random.normal(size=(self.action_space_size))
+        if self.mode == 'train':
+            action = action + np.random.normal(size=(self.action_space_size))
         return action
 
     def store_memory(self, *args):
@@ -74,3 +79,26 @@ class DDPG():
                                                             (1-rho)*param1.data)
 
         self.target_policy_network.load_state_dict(dict_target_policy_params)
+
+    def get_batch(self):
+        transitions = self.replay_buffer.sample(self.batch_size)
+        batch = Transition(*zip(*transitions))
+
+        # Compute a mask of non-final states and concatenate the batch elements
+        # (a final state would've been the one after which simulation ended)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is False,
+                                            batch.done)), device=self.device, 
+                                            dtype=torch.bool)
+        non_final_next_states = torch.cat([s for s in batch.done
+                                                    if s is False])
+        state_batch = torch.cat(batch.state)
+        action_batch = torch.cat(batch.action)
+        reward_batch = torch.cat(batch.reward)
+
+    def update(self):
+        # sample batch from memory
+        # compute targets with target networks
+        batch.
+        # update q function
+        # update policy
+        # update target networks with polyak-ing
