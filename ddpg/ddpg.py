@@ -9,11 +9,10 @@ import numpy as np
 
 class DDPG():
     def __init__(self, obs_space_size, action_space_size, 
-                 action_space_range, config, mode="train") -> None:
+                 action_space_range, config) -> None:
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.config = config
         self.action_space_size = action_space_size
-        self.mode = mode
         self.batch_size = config["batch_size"]
 
         self.q_network = dqn.DQN(obs_space_size, action_space_size,
@@ -39,13 +38,14 @@ class DDPG():
         self.target_policy_network.to(self.device)
 
 
-    def select_action(self, state):
+    def select_action(self, state, add_noise=False):
         state = torch.from_numpy(state).squeeze()
-        action = torch.clamp(self.target_policy_network(state), 
-                             self.action_space_range[0], 
-                             self.action_space_range[1]).numpy()
-        if self.mode == 'train':
+        action = self.target_policy_network(state).numpy()
+        if add_noise == True:
             action = action + np.random.normal(size=(self.action_space_size))
+        action = np.clip(action, 
+                         self.action_space_range[0], 
+                         self.action_space_range[1])
         return action
 
     def store_memory(self, *args):
@@ -89,16 +89,24 @@ class DDPG():
         non_final_mask = torch.tensor(tuple(map(lambda s: s is False,
                                             batch.done)), device=self.device, 
                                             dtype=torch.bool)
-        non_final_next_states = torch.cat([s for s in batch.done
-                                                    if s is False])
+        
+        non_final_next_states = batch.next_state
+        non_final_next_states = non_final_next_states[non_final_mask]
+
         state_batch = torch.cat(batch.state)
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
 
+        return state_batch, action_batch, reward_batch, \
+            non_final_mask, non_final_next_states
+
     def update(self):
         # sample batch from memory
+        state_batch, action_batch, reward_batch, \
+            non_final_mask, non_final_next_states = self.get_batch()
+        action = self.policy_network(non_final_next_states)
         # compute targets with target networks
-        batch.
+        y_target = reward_batch + self.q_network()
         # update q function
         # update policy
         # update target networks with polyak-ing

@@ -24,7 +24,7 @@ def main(argv):
     # init environment
     env = gym.make(config["env"])
     random_seed = config["random_seed"]
-    state = env.reset(seed=random_seed)
+    state, _ = env.reset(seed=random_seed)
     action_space_size = env.action_space.shape[0]
     action_space_range = (env.action_space.low[0], env.action_space.high[0])
     obs_space_size = env.observation_space.shape[0]
@@ -38,13 +38,14 @@ def main(argv):
     counter = 0
     while(True):
         # select action, and add zero mean gaussian noise to selected actions
-        action = ddpg_system.select_action(state)
+        action = ddpg_system.select_action(state, True)
         # execute action - get next_state, rewards, done signal
         next_state, reward, done, _, _ = env.step(action)
         # store all data in replay buffer
         ddpg_system.store_memory(state, action, next_state, reward, done)
         # if (time to update):
         if (counter % config["update_period"]):
+           ddpg_system.update()
 
 
     # clean up resources

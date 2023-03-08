@@ -19,8 +19,7 @@ class PolicyNetwork(nn.Module):
 
         layer_list.append((nn.Linear(num_hidden, action_space_size)))
 
-        self.linear_activation_stack = nn.Sequential(nn.Flatten(), 
-                                                     *layer_list)
+        self.linear_activation_stack = nn.Sequential(*layer_list)
                                                 
     def forward(self, x):
         logits = self.linear_activation_stack(x)
