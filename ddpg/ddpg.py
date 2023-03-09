@@ -106,7 +106,8 @@ class DDPG():
             non_final_mask, non_final_next_states = self.get_batch()
         action = self.policy_network(non_final_next_states)
         # compute targets with target networks
-        y_target = reward_batch + self.q_network()
+
+        y_target = reward_batch + self.q_network(torch.cat())
         # update q function
         # update policy
         # update target networks with polyak-ing
