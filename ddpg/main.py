@@ -65,7 +65,8 @@ def main(argv):
             state, _ = env.reset()
         # if (time to update):
         if (counter % config["update_period"] == 0):
-           ddpg_system.update()
+            for i in range(config["num_updates"]):
+                ddpg_system.update()
         
         if (counter % config["render_period"] == 0):
             sys.stdout.write("Render Number: {}\n".format(counter / config["render_period"]))

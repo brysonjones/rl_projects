@@ -1,4 +1,5 @@
 
+import sys
 import torch
 import dqn
 import policy
@@ -127,3 +128,8 @@ class DDPG():
 
         # update target networks with polyak-ing
         self.update_target_network_weights()
+
+        # print loss
+        sys.stdout.write("policy_loss: {}\n".format(policy_loss))
+        sys.stdout.write("q_loss: {}\n".format(q_loss))
+
