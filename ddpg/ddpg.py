@@ -14,19 +14,21 @@ class DDPG():
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.config = config
         self.action_space_size = action_space_size
+        self.action_space_range = action_space_range
+        self.action_scale = (action_space_range[1] - action_space_range[0]) / 2.0
+        self.noise_scale = self.action_scale * self.config["noise_scale"]
         self.batch_size = config["batch_size"]
 
         self.q_network = dqn.DQN(obs_space_size, action_space_size,
                                  config['network']['num_hidden'],
                                  config['network']['num_layers'],
                                  config['network']['activation'])
-        self.policy_network = policy.PolicyNetwork(obs_space_size, action_space_size,
+        self.policy_network = policy.PolicyNetwork(obs_space_size, action_space_size, self.action_scale,
                                                    config['network']['num_hidden'],
                                                    config['network']['num_layers'],
                                                    config['network']['activation'])
-        self.action_space_range = action_space_range
 
-        self.replay_buffer = memory.ReplayMemory(config['replay_buffer']['max_size'])
+        self.replay_buffer = memory.ReplayMemory(config['replay_buffer']['max_size'], config["random_seed"])
 
         # copy networks to target networks
         self.target_q_network = copy.deepcopy(self.q_network)
@@ -45,7 +47,7 @@ class DDPG():
         state = torch.from_numpy(state).squeeze().float().to(self.device)
         action = self.target_policy_network(state).cpu().detach().numpy()
         if add_noise == True:
-            action = action + np.random.normal(size=(self.action_space_size))
+            action = action + np.random.normal(loc=0, scale=self.noise_scale, size=(self.action_space_size))
         action = np.clip(action, 
                          self.action_space_range[0], 
                          self.action_space_range[1])
@@ -105,10 +107,10 @@ class DDPG():
             return 
         state_batch, action_batch, reward_batch, \
                 done_batch, next_state_batch = sample
-        next__action_batch = self.target_policy_network(next_state_batch)
+        next_action_batch = self.target_policy_network(next_state_batch)
         
         # compute targets with target networks
-        target_state_action_batch = torch.hstack((next_state_batch, next__action_batch))
+        target_state_action_batch = torch.hstack((next_state_batch, next_action_batch))
         y_target = reward_batch + self.config["discount_gamma"] * (1 - done_batch) * self.target_q_network(target_state_action_batch)
         
         # update q function
@@ -130,6 +132,6 @@ class DDPG():
         self.update_target_network_weights()
 
         # print loss
-        sys.stdout.write("policy_loss: {}\n".format(policy_loss))
-        sys.stdout.write("q_loss: {}\n".format(q_loss))
+        # sys.stdout.write("policy_loss: {}\n".format(policy_loss))
+        # sys.stdout.write("q_loss: {}\n".format(q_loss))
 

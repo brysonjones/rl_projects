@@ -4,9 +4,11 @@ import torch.nn as nn
 import layers
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, obs_space_size, action_space_size,
+    def __init__(self, obs_space_size, action_space_size, action_scale,
                  num_hidden, num_layers, activation='ReLU'):
         super().__init__()
+
+        self.action_scale = action_scale
 
         layer_list = []
         for i_layer in range(num_layers):
@@ -18,9 +20,11 @@ class PolicyNetwork(nn.Module):
                 layer_list.append(layers.activation_dict[activation]())
 
         layer_list.append((nn.Linear(num_hidden, action_space_size)))
+        layer_list.append((nn.Tanh()))
 
         self.linear_activation_stack = nn.Sequential(*layer_list)
                                                 
     def forward(self, x):
-        logits = self.linear_activation_stack(x)
-        return logits
+        x = self.linear_activation_stack(x)
+        action = x * self.action_scale
+        return action
