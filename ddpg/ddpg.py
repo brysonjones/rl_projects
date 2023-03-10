@@ -37,6 +37,8 @@ class DDPG():
         self.target_q_network.to(self.device)
         self.target_policy_network.to(self.device)
 
+        self.q_optimizer = torch.optim.Adam(self.q_network.parameters(), self.config["optimizer"]["lr"])
+        self.policy_optimizer = torch.optim.Adam(self.policy_network.parameters(), self.config["optimizer"]["lr"])
 
     def select_action(self, state, add_noise=False):
         state = torch.from_numpy(state).squeeze().float()
@@ -86,21 +88,14 @@ class DDPG():
         transitions = self.replay_buffer.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
 
-        # Compute a mask of non-final states and concatenate the batch elements
-        # (a final state would've been the one after which simulation ended)
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is False,
-                                            batch.done)), device=self.device, 
-                                            dtype=torch.bool)
-        
-        non_final_next_states = batch.next_state
-        non_final_next_states = non_final_next_states[non_final_mask]
-
-        state_batch = torch.cat(batch.state)
-        action_batch = torch.cat(batch.action)
-        reward_batch = torch.cat(batch.reward)
+        state_batch = torch.tensor(batch.state).float()
+        action_batch = torch.tensor(batch.action).float()
+        reward_batch = torch.tensor(batch.reward).float()
+        next_state_batch = torch.tensor(batch.next_state).float()
+        done_batch = torch.tensor(batch.done).int()
 
         return (state_batch, action_batch, reward_batch, \
-            non_final_mask, non_final_next_states)
+            done_batch, next_state_batch)
 
     def update(self):
         # sample batch from memory
@@ -108,11 +103,27 @@ class DDPG():
         if not sample:
             return 
         state_batch, action_batch, reward_batch, \
-                non_final_mask, non_final_next_states = sample
-        action = self.policy_network(non_final_next_states)
+                done_batch, next_state_batch = sample
+        next__action_batch = self.target_policy_network(next_state_batch)
+        
         # compute targets with target networks
-
-        y_target = reward_batch + self.q_network(torch.cat())
+        target_state_action_batch = torch.hstack((next_state_batch, next__action_batch))
+        y_target = reward_batch + self.config["discount_gamma"] * (1 - done_batch) * self.target_q_network(target_state_action_batch)
+        
         # update q function
+        state_action_batch = torch.hstack((state_batch, action_batch))
+        q_pred = self.q_network(state_action_batch)
+        q_loss = torch.nn.functional.mse_loss(q_pred, y_target)
+        self.q_optimizer.zero_grad()
+        q_loss.backward()
+        self.q_optimizer.step()
+
         # update policy
+        state_policy_output_batch = torch.hstack((state_batch, self.policy_network(state_batch)))
+        policy_loss = -self.q_network(state_policy_output_batch).mean()
+        self.policy_optimizer.zero_grad()
+        policy_loss.backward()
+        self.policy_optimizer.step()
+
         # update target networks with polyak-ing
+        self.update_target_network_weights()

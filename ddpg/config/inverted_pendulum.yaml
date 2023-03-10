@@ -8,7 +8,8 @@ network:
 target_network:
   rho: 0.9  # rho for polyak averaging
 optimizer:
-  lr: 1e-4
+  lr: 0.0001
 replay_buffer:
   max_size: 5000
 batch_size: 64
+discount_gamma: 0.99

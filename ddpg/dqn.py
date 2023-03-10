@@ -22,5 +22,5 @@ class DQN(nn.Module):
         self.linear_activation_stack = nn.Sequential(*layer_list)
                                                 
     def forward(self, x):
-        logits = self.linear_activation_stack(x)
+        logits = self.linear_activation_stack(x).flatten()
         return logits
