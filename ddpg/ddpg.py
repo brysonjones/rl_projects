@@ -39,8 +39,8 @@ class DDPG():
 
 
     def select_action(self, state, add_noise=False):
-        state = torch.from_numpy(state).squeeze()
-        action = self.target_policy_network(state).numpy()
+        state = torch.from_numpy(state).squeeze().float()
+        action = self.target_policy_network(state).detach().numpy()
         if add_noise == True:
             action = action + np.random.normal(size=(self.action_space_size))
         action = np.clip(action, 
@@ -81,6 +81,8 @@ class DDPG():
         self.target_policy_network.load_state_dict(dict_target_policy_params)
 
     def get_batch(self):
+        if len(self.replay_buffer) < self.batch_size:
+            return None
         transitions = self.replay_buffer.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
 
@@ -97,13 +99,16 @@ class DDPG():
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
 
-        return state_batch, action_batch, reward_batch, \
-            non_final_mask, non_final_next_states
+        return (state_batch, action_batch, reward_batch, \
+            non_final_mask, non_final_next_states)
 
     def update(self):
         # sample batch from memory
+        sample = self.get_batch()
+        if not sample:
+            return 
         state_batch, action_batch, reward_batch, \
-            non_final_mask, non_final_next_states = self.get_batch()
+                non_final_mask, non_final_next_states = sample
         action = self.policy_network(non_final_next_states)
         # compute targets with target networks
 

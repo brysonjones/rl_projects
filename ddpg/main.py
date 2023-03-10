@@ -44,7 +44,7 @@ def main(argv):
         # store all data in replay buffer
         ddpg_system.store_memory(state, action, next_state, reward, done)
         # if (time to update):
-        if (counter % config["update_period"]):
+        if (counter % config["update_period"] == 0):
            ddpg_system.update()
 
 
