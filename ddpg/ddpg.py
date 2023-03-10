@@ -40,8 +40,8 @@ class DDPG():
         self.target_q_network.to(self.device)
         self.target_policy_network.to(self.device)
 
-        self.q_optimizer = torch.optim.Adam(self.q_network.parameters(), self.config["optimizer"]["lr"])
-        self.policy_optimizer = torch.optim.Adam(self.policy_network.parameters(), self.config["optimizer"]["lr"])
+        self.q_optimizer = torch.optim.Adam(list(self.q_network.parameters()), self.config["optimizer"]["lr"])
+        self.policy_optimizer = torch.optim.Adam(list(self.policy_network.parameters()), self.config["optimizer"]["lr"])
 
     def select_action(self, state, add_noise=False):
         state = torch.from_numpy(state).squeeze().float().to(self.device)
@@ -92,9 +92,9 @@ class DDPG():
         batch = Transition(*zip(*transitions))
 
         state_batch = torch.tensor(np.array(batch.state)).float().to(self.device)
-        action_batch = torch.tensor(batch.action).float().to(self.device)
-        reward_batch = torch.tensor(batch.reward).float().to(self.device)
-        next_state_batch = torch.tensor(batch.next_state).float().to(self.device)
+        action_batch = torch.tensor(np.array(batch.action)).float().to(self.device)
+        reward_batch = torch.tensor(np.array(batch.reward)).float().to(self.device)
+        next_state_batch = torch.tensor(np.array(batch.next_state)).float().to(self.device)
         done_batch = torch.tensor(batch.done).int().to(self.device)
 
         return (state_batch, action_batch, reward_batch, \
