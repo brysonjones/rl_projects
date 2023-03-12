@@ -1,8 +1,8 @@
-env: InvertedPendulum-v4
+env: Hopper-v4
 render_mode: rgb_array
 random_seed: 7
-update_period: 50
-render_period: 5000
+update_period: 1
+render_period: 1000
 learning_wait_period: 25000
 num_updates: 1
 network:
