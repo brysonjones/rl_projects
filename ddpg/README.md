@@ -13,8 +13,6 @@ benchmarked in various simple environments against existing implementations
 
 ### Libraries
 
-
-
 ## The Algorithm
 * DDPG is an off-policy algorithm, meaning it learns from data gathered from sources other than it's current policy
 * It can only be utilized in environments with continuous action spaces
