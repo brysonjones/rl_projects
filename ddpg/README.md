@@ -7,11 +7,22 @@ benchmarked in various simple environments against existing implementations
 
 ## Resources
 ### Papers
-
+[]()
 
 ### Articles
+TODO
+
+### Codebases
+TODO
 
 ### Libraries
+* Abseil 
+  * Argument parsing
+* PyTorch
+  * DL Framework
+* Gymnasium
+  * RL Environments
+
 
 ## The Algorithm
 * DDPG is an off-policy algorithm, meaning it learns from data gathered from sources other than it's current policy
@@ -24,9 +35,10 @@ benchmarked in various simple environments against existing implementations
 
 
 ## Implementation
-
+TODO
 
 ## Results
-
+TODO
 
 ## Takeaways
+TODO

@@ -69,7 +69,7 @@ def main(argv):
 
         if (done):
             state, _ = env.reset()
-        # if (time to update):
+
         if (counter % config["update_period"] == 0 and counter > config["learning_wait_period"]):
             for i in range(config["num_updates"]):
                 ddpg_system.update()
