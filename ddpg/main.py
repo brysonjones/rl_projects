@@ -62,6 +62,8 @@ def main(argv):
         next_state, reward, done, _, _ = env.step(action)
         # store all data in replay buffer
         ddpg_system.store_memory(state, action, next_state, reward, done)
+        # update state
+        state = next_state
 
         counter += 1
 
