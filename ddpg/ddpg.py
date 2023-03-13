@@ -59,38 +59,11 @@ class DDPG():
     def update_target_network_weights(self):  
         rho = self.config["target_network"]["rho"]
 
-
         # update the target network
         for param, target_param in zip(self.policy_network.parameters(), self.target_policy_network.parameters()):
             target_param.data.copy_((1-rho) * param.data + rho * target_param.data)
         for param, target_param in zip(self.q_network.parameters(), self.target_q_network.parameters()):
             target_param.data.copy_((1-rho) * param.data + rho * target_param.data)
-
-        # # update target dqn
-        # dqn_params = self.q_network.named_parameters()
-        # target_dqn_params = self.target_q_network.named_parameters()
-
-        # dict_target_dqn_params = dict(target_dqn_params)
-
-        # for name1, param1 in dqn_params:
-        #     if name1 in dict_target_dqn_params:
-        #         dict_target_dqn_params[name1].data.copy_(rho*dict_target_dqn_params[name1].data + 
-        #                                                  (1-rho)*param1.data)
-
-        # self.target_q_network.load_state_dict(dict_target_dqn_params)
-
-        # # update target policy
-        # policy_params = self.policy_network.named_parameters()
-        # target_policy_params = self.target_policy_network.named_parameters()
-
-        # dict_target_policy_params = dict(target_policy_params)
-
-        # for name1, param1 in policy_params:
-        #     if name1 in dict_target_policy_params:
-        #         dict_target_policy_params[name1].data.copy_(rho*dict_target_policy_params[name1].data + 
-        #                                                     (1-rho)*param1.data)
-
-        # self.target_policy_network.load_state_dict(dict_target_policy_params)
 
     def get_batch(self):
         if len(self.replay_buffer) < self.batch_size:
