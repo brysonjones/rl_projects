@@ -41,4 +41,7 @@ TODO
 TODO
 
 ## Takeaways
-TODO
+* DDPG is very brittle when tuning hyperparameters
+* Performance can quickly dive after learning a high-reward policy
+  * this appears to be with the Q estimates becoming unstable
+* 
