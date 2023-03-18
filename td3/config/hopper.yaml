@@ -1,0 +1,20 @@
+env: Hopper-v4
+render_mode: rgb_array
+random_seed: 7
+update_period: 1
+render_period: 1000
+learning_wait_period: 25000
+num_updates: 1
+network:
+  num_layers: 2
+  num_hidden: 256
+  activation: ReLU
+target_network:
+  rho: 0.995  # rho for polyak averaging
+optimizer:
+  lr: 0.0003
+replay_buffer:
+  max_size: 1000000
+batch_size: 256
+discount_gamma: 0.99
+noise_scale: 0.1
