@@ -1,19 +1,13 @@
-# Deep Deterministic Policy Gradient (DDPG)
+# Twin Delayed Deep Deterministic Policy Gradient (Twin Delayed DDPG or TD3)
 
 ## Overview
-This project focuses on implementing DDPG from scratch, by referencing the original paper, 
-and various other references. The algorithm is implemented in Python, and is  
+This project focuses on implementing Twin Delay DDPG. The algorithm is implemented in Python, and is  
 benchmarked in various simple environments against existing implementations
 
 ## Resources
 ### Papers
-[]()
-
-### Articles
-TODO
-
-### Codebases
-TODO
+* [Continuous control with deep reinforcement learning](https://arxiv.org/abs/1509.02971) - this is the original DDPG paper
+* [Addressing Function Approximation Error in Actor-Critic Methods](https://arxiv.org/abs/1802.09477) - this is the TD3 Paper that addresses issues found in DDPG
 
 ### Libraries
 * Abseil 
@@ -23,25 +17,7 @@ TODO
 * Gymnasium
   * RL Environments
 
-
 ## The Algorithm
-* DDPG is an off-policy algorithm, meaning it learns from data gathered from sources other than it's current policy
-* It can only be utilized in environments with continuous action spaces
-* Two big implementation details that are important for DDPG:
-  * The Replay Buffers -- this is where previous experiences are stored to be trained on later, and the challenges is balancing keeping enough data not to overfit to one section of experiences, but not running out of memory/storage
-  * Target Networks -- When trying to minimize the Mean-Squared Bellman Error (MBSE) loss, we are trying to make the Q function more like this target, but the target depends on the same set of paramters that we are updating, which leads to stability issues during training
-    * To mitigate this, a second network is created, where this networks parameters are either frozen in time or updated on a slower bases
-    * In common literature, this target network ahs it's parameters updated using `polyak` averaging 
 
-
-## Implementation
-TODO
-
-## Results
-TODO
 
 ## Takeaways
-* DDPG is very brittle when tuning hyperparameters
-* Performance can quickly dive after learning a high-reward policy
-  * this appears to be with the Q estimates becoming unstable
-* 
