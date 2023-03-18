@@ -52,8 +52,7 @@ def main(argv):
     ddpg_system = ddpg.DDPG(obs_space_size, action_space_size, 
                             action_space_range, config)
 
-    # init environmen
-    # loop()
+    # init environment
     counter = 0
     while(True):
         # select action, and add zero mean gaussian noise to selected actions
